@@ -3,11 +3,15 @@ import 'package:flutter/material.dart';
 class Sidebar extends StatelessWidget {
   final bool collapsed;
   final ValueChanged<bool> onCollapsedChanged;
+  final int selectedIndex;
+  final ValueChanged<int> onItemSelected;
 
   const Sidebar({
     super.key,
     required this.collapsed,
     required this.onCollapsedChanged,
+    required this.selectedIndex,
+    required this.onItemSelected,
   });
 
   @override
@@ -48,10 +52,10 @@ class Sidebar extends StatelessWidget {
                         Container(
                           padding: const EdgeInsets.all(8),
                           decoration: BoxDecoration(
-                            color: Colors.blue.withOpacity(0.1),
+                            color: const Color(0xFF00BFA5).withOpacity(0.1),
                             borderRadius: BorderRadius.circular(8),
                           ),
-                          child: const Icon(Icons.monitor_heart, color: Colors.blue),
+                          child: const Icon(Icons.monitor_heart, color: Color(0xFF00BFA5)),
                         ),
                         if (!collapsed) ...[
                           const SizedBox(width: 12),
@@ -97,17 +101,34 @@ class Sidebar extends StatelessWidget {
                 children: [
                   _NavItem(
                     icon: Icons.dashboard,
-                    label: "Main Screen",
+                    label: "Dashboard",
                     collapsed: collapsed,
-                    active: true,
+                    active: selectedIndex == 0,
+                    onTap: () => onItemSelected(0),
                   ),
                   const SizedBox(height: 8),
                   _NavItem(
-                    icon: Icons.people,
-                    label: "Walk-ins",
+                    icon: Icons.call,
+                    label: "Call Logs",
                     collapsed: collapsed,
-                    disabled: true,
-                    badge: "Soon",
+                    active: selectedIndex == 1,
+                    onTap: () => onItemSelected(1),
+                  ),
+                  const SizedBox(height: 8),
+                  _NavItem(
+                    icon: Icons.calendar_month,
+                    label: "Calendar",
+                    collapsed: collapsed,
+                    active: selectedIndex == 2,
+                    onTap: () => onItemSelected(2),
+                  ),
+                  const SizedBox(height: 8),
+                  _NavItem(
+                    icon: Icons.queue_music,
+                    label: "Queue",
+                    collapsed: collapsed,
+                    active: selectedIndex == 3,
+                    onTap: () => onItemSelected(3),
                   ),
                 ],
               ),
@@ -137,6 +158,7 @@ class _NavItem extends StatelessWidget {
   final bool active;
   final bool disabled;
   final String? badge;
+  final VoidCallback? onTap;
 
   const _NavItem({
     required this.icon,
@@ -145,16 +167,17 @@ class _NavItem extends StatelessWidget {
     this.active = false,
     this.disabled = false,
     this.badge,
+    this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
-    final color = active ? Colors.blue : (disabled ? Colors.grey.withOpacity(0.5) : Colors.grey[700]);
-    final bgColor = active ? Colors.blue : Colors.transparent;
-    final textColor = active ? Colors.white : (disabled ? Colors.grey.withOpacity(0.5) : Colors.grey[700]);
+    final color = active ? const Color(0xFF00BFA5) : (disabled ? Colors.grey.withOpacity(0.5) : Colors.grey[700]);
+    final bgColor = active ? const Color(0xFF00BFA5).withOpacity(0.1) : Colors.transparent;
+    final textColor = active ? const Color(0xFF00BFA5) : (disabled ? Colors.grey.withOpacity(0.5) : Colors.grey[700]);
 
     return InkWell(
-      onTap: disabled ? null : () {},
+      onTap: disabled ? null : onTap,
       borderRadius: BorderRadius.circular(12),
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 12),
@@ -165,7 +188,7 @@ class _NavItem extends StatelessWidget {
         child: Row(
           mainAxisAlignment: collapsed ? MainAxisAlignment.center : MainAxisAlignment.start,
           children: [
-            Icon(icon, size: 20, color: active ? Colors.white : color),
+            Icon(icon, size: 20, color: color),
             if (!collapsed) ...[
               const SizedBox(width: 12),
               Expanded(

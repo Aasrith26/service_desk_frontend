@@ -1,24 +1,23 @@
 import 'package:flutter/material.dart';
-import '../data/mock_data.dart';
+import '../models/models.dart';
 
 class PatientDetailsPanel extends StatelessWidget {
   final Appointment? appointment;
+  final Doctor? doctor; // Passed from parent
   final VoidCallback onClose;
 
   const PatientDetailsPanel({
     super.key,
     required this.appointment,
+    this.doctor,
     required this.onClose,
   });
 
   @override
   Widget build(BuildContext context) {
     if (appointment == null) {
-      return Container(); // Or a placeholder state
+      return Container(); 
     }
-
-    final patient = getPatient(appointment!.patientId);
-    final doctor = doctors.firstWhere((d) => d.id == appointment!.doctorId);
 
     return Container(
       width: 350,
@@ -37,12 +36,12 @@ class PatientDetailsPanel extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      patient.name,
+                      appointment!.patientName,
                       style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      "Patient ID: #${patient.id.toUpperCase()}",
+                      "Status: ${appointment!.status.toUpperCase()}",
                       style: TextStyle(color: Colors.grey[500], fontSize: 12),
                     ),
                   ],
@@ -68,9 +67,15 @@ class PatientDetailsPanel extends StatelessWidget {
                 const SizedBox(height: 16),
                 _InfoRow(label: "Time", value: "${appointment!.time} (${appointment!.duration} min)"),
                 const SizedBox(height: 12),
+                _InfoRow(label: "Token", value: "#${appointment!.tokenNumber}", subValue: "Live Sequence"),
+                const SizedBox(height: 12),
                 _InfoRow(label: "Type", value: appointment!.type),
                 const SizedBox(height: 12),
-                _InfoRow(label: "Doctor", value: doctor.name, subValue: doctor.specialty),
+                _InfoRow(
+                    label: "Doctor", 
+                    value: doctor?.name ?? appointment!.doctorName, 
+                    subValue: doctor?.specialization
+                ),
 
                 const SizedBox(height: 32),
                 _SectionHeader(label: "PATIENT INFORMATION", icon: Icons.person_outline),
@@ -79,21 +84,24 @@ class PatientDetailsPanel extends StatelessWidget {
                 _ContactCard(
                     icon: Icons.phone_in_talk, 
                     label: "Phone Number", 
-                    value: patient.phone
+                    value: appointment!.patientPhone
                 ),
+                // Email and History not available in current API
+                /*
                 const SizedBox(height: 12),
                  _ContactCard(
                     icon: Icons.email_outlined, 
                     label: "Email", 
-                    value: patient.email
+                    value: "Not available"
                 ),
                  const SizedBox(height: 12),
                  _ContactCard(
                     icon: Icons.description_outlined, 
                     label: "Medical History", 
-                    value: patient.history,
-                    isWarning: true,
+                    value: "None on record",
+                    isWarning: false,
                 ),
+                */
               ],
             ),
           ),

@@ -43,3 +43,22 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# Environment and local config
+.env
+.env.local
+*.local
+
+# Generated files
+*.g.dart
+*.freezed.dart
+*.mocks.dart
+
+# Coverage
+coverage/
+
+# Logs
+*.log
+
+# Lock files (optional - uncomment if you want to ignore)
+# pubspec.lock

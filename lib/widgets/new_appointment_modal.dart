@@ -1,11 +1,17 @@
 import 'package:flutter/material.dart';
-import '../data/mock_data.dart';
+import '../models/models.dart';
 
 class NewAppointmentDialog extends StatefulWidget {
-  final Function(Appointment) onSubmit;
+  final Function(String patientName, String patientPhone, String doctorId, TimeOfDay time, String type, String notes) onSubmit;
   final DateTime selectedDate;
+  final List<Doctor> doctors;
 
-  const NewAppointmentDialog({super.key, required this.onSubmit, required this.selectedDate});
+  const NewAppointmentDialog({
+    super.key,
+    required this.onSubmit,
+    required this.selectedDate,
+    required this.doctors,
+  });
 
   @override
   State<NewAppointmentDialog> createState() => _NewAppointmentDialogState();
@@ -14,15 +20,28 @@ class NewAppointmentDialog extends StatefulWidget {
 class _NewAppointmentDialogState extends State<NewAppointmentDialog> {
   final _formKey = GlobalKey<FormState>();
   String _patientName = '';
-  String _doctorId = doctors.first.id;
+  String _patientPhone = ''; // Added phone
+  String? _doctorId;
   TimeOfDay _time = const TimeOfDay(hour: 9, minute: 0);
   String _type = 'Consultation';
   String _notes = '';
 
   @override
+  void initState() {
+    super.initState();
+    if (widget.doctors.isNotEmpty) {
+      _doctorId = widget.doctors.first.id;
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
+    if (widget.doctors.isEmpty) {
+        return const Center(child: Text("No doctors available"));
+    }
+
     return Dialog(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)), // More rounded
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
       backgroundColor: Colors.white,
       child: ConstrainedBox(
         constraints: BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.8),
@@ -66,6 +85,18 @@ class _NewAppointmentDialogState extends State<NewAppointmentDialog> {
                               value == null || value.isEmpty ? 'Please enter a name' : null,
                           onSaved: (value) => _patientName = value!,
                         ),
+                        const SizedBox(height: 16),
+                        
+                        // Patient Phone
+                        _Label("Phone Number", Icons.phone),
+                        const SizedBox(height: 8),
+                         TextFormField(
+                          decoration: _inputDecoration("e.g. 555-123-4567"),
+                          validator: (value) =>
+                              value == null || value.isEmpty ? 'Please enter phone number' : null,
+                          onSaved: (value) => _patientPhone = value!,
+                        ),
+
                         const SizedBox(height: 24),
 
                         Row(
@@ -83,10 +114,10 @@ class _NewAppointmentDialogState extends State<NewAppointmentDialog> {
                                     decoration: _inputDecoration("Select Doctor"),
                                     icon: const Icon(Icons.keyboard_arrow_down),
                                     borderRadius: BorderRadius.circular(16),
-                                    items: doctors.map((doc) {
+                                    items: widget.doctors.map((doc) {
                                       return DropdownMenuItem(
                                         value: doc.id,
-                                        child: Text(doc.name),
+                                        child: Text(doc.name, overflow: TextOverflow.ellipsis),
                                       );
                                     }).toList(),
                                     onChanged: (value) {
@@ -265,25 +296,31 @@ class _NewAppointmentDialogState extends State<NewAppointmentDialog> {
   void _submit() {
     if (_formKey.currentState!.validate()) {
       _formKey.currentState!.save();
-      final appointment = Appointment(
-        id: DateTime.now().millisecondsSinceEpoch.toString(),
-        patientId: patients.first.id, // For demo, default to first patient
-        time: _time.format(context),
-        duration: 30,
-        type: _type,
-        doctorId: _doctorId,
-        status: 'scheduled',
-        date: widget.selectedDate,
+      // Pass raw data back to MainScreen to handle API
+      widget.onSubmit(
+          _patientName,
+          _patientPhone,
+          _doctorId!,
+          widget.selectedDate == DateTime.now() ? _time : _time, // Time logic simplified
+          _type,
+          _notes
       );
-      widget.onSubmit(appointment);
       Navigator.of(context).pop();
     }
   }
 }
 
-Future<void> showNewAppointmentDialog(BuildContext context, Function(Appointment) onSubmit, DateTime selectedDate) {
+Future<void> showNewAppointmentDialog(
+    BuildContext context, 
+    Function(String, String, String, TimeOfDay, String, String) onSubmit, 
+    DateTime selectedDate,
+    List<Doctor> doctors) {
   return showDialog(
     context: context,
-    builder: (context) => NewAppointmentDialog(onSubmit: onSubmit, selectedDate: selectedDate),
+    builder: (context) => NewAppointmentDialog(
+        onSubmit: onSubmit, 
+        selectedDate: selectedDate,
+        doctors: doctors
+    ),
   );
 }
