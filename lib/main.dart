@@ -12,6 +12,7 @@ import 'screens/login_screen.dart';
 import 'screens/call_logs_screen.dart';
 import 'screens/calendar_screen.dart';
 import 'screens/queue_management_screen.dart';
+import 'screens/admin_settings_screen.dart';
 
 void main() {
   runApp(const MyApp());
@@ -210,7 +211,9 @@ class _MainScreenState extends State<MainScreen> {
               ? CallLogsScreen(clinicId: widget.clinicId)
               : _selectedIndex == 2
                   ? CalendarScreen(clinicId: widget.clinicId)
-                  : QueueManagementScreen(clinicId: widget.clinicId),
+                  : _selectedIndex == 3
+                      ? QueueManagementScreen(clinicId: widget.clinicId)
+                      : AdminSettingsScreen(clinicId: widget.clinicId),
     );
   }
 

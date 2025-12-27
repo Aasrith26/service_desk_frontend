@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 
 class Appointment {
   final String id;
-  final String date; // Added date field
+  final String date;
   final String time;
   final int duration;
   final String patientName;
@@ -12,6 +12,8 @@ class Appointment {
   final String status;
   final String type;
   final int tokenNumber;
+  final int queuePosition;  // 0 = serving, 1+ = waiting position
+  final bool isCheckedIn;   // true if patient has arrived
   
   Appointment({
     required this.id,
@@ -25,12 +27,14 @@ class Appointment {
     required this.status,
     required this.type,
     required this.tokenNumber,
+    this.queuePosition = 0,
+    this.isCheckedIn = false,
   });
 
   factory Appointment.fromJson(Map<String, dynamic> json) {
     return Appointment(
       id: json['id'],
-      date: json['date'] ?? '', // Handle missing date gracefully
+      date: json['date'] ?? '',
       time: json['time'],
       duration: json['duration'],
       patientName: json['patient_name'],
@@ -40,6 +44,8 @@ class Appointment {
       status: json['status'],
       type: json['type'],
       tokenNumber: json['token_number'] ?? 0,
+      queuePosition: json['queue_position'] ?? 0,
+      isCheckedIn: json['is_checked_in'] ?? false,
     );
   }
 }

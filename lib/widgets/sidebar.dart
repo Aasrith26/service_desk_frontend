@@ -143,6 +143,8 @@ class Sidebar extends StatelessWidget {
               icon: Icons.settings,
               label: "Settings",
               collapsed: collapsed,
+              active: selectedIndex == 4,
+              onTap: () => onItemSelected(4),
             ),
           ),
         ],
