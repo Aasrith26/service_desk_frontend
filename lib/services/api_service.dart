@@ -3,8 +3,8 @@ import 'package:http/http.dart' as http;
 import '../models/models.dart';
 
 class ApiService {
-  // Use 127.0.0.1 for Windows/Web. Use 10.0.2.2 for Android Emulator.
-  static const String baseUrl = 'http://127.0.0.1:8000/dashboard';
+  // Production backend on Render
+  static const String baseUrl = 'https://service-desk-fgrj.onrender.com/dashboard';
 
   Future<Map<String, dynamic>?> login(String username, String password) async {
     final uri = Uri.parse('$baseUrl/login');
