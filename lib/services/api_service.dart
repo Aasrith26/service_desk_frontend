@@ -165,10 +165,28 @@ class ApiService {
         }),
       );
       
-      if (response.statusCode == 200) {
+      if (response.statusCode == 200 || response.statusCode == 201) {
           return null; // Success
+      } else if (response.statusCode == 400) {
+          // Handle validation errors with user-friendly messages
+          try {
+              final body = jsonDecode(response.body);
+              final detail = body['detail']?.toString() ?? '';
+              
+              // Translate backend errors to user-friendly messages
+              if (detail.toLowerCase().contains('no session found') || 
+                  detail.toLowerCase().contains('clinic is closed') ||
+                  detail.toLowerCase().contains('outside')) {
+                return "Clinic is closed at this time. Please select a different time.";
+              }
+              if (detail.toLowerCase().contains('slot') && detail.toLowerCase().contains('full')) {
+                return "This time slot is fully booked. Please choose another time.";
+              }
+              if (detail.isNotEmpty) return detail;
+          } catch (_) {}
+          return "Invalid appointment time. Please check clinic hours.";
       } else {
-          // Try to decode error message
+          // Other errors
           try {
               final body = jsonDecode(response.body);
               if (body['detail'] != null) return body['detail'];
@@ -177,7 +195,7 @@ class ApiService {
       }
     } catch (e) {
       print("API Error: $e");
-      return "Network Error: $e";
+      return "Network Error: Unable to connect to server";
     }
   }
 
