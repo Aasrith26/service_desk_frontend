@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import '../services/api_service.dart';
 import '../models/models.dart';
+import '../widgets/rush_indicator.dart';
 
 class QueueManagementScreen extends StatefulWidget {
   final String clinicId;
@@ -22,14 +23,74 @@ class _QueueManagementScreenState extends State<QueueManagementScreen> {
   List<Appointment> _waitingList = [];
   List<Appointment> _skippedList = [];
 
+  // Doctor filter
+  List<Doctor> _doctors = [];
+  String? _selectedDoctorId;
+  int _totalWaiting = 0;
+
+  // Rush indicator data
+  String _rushLevel = 'Low';
+  String _estimatedWait = '5-15 minutes';
+
+  // Session status
+  bool _isSessionActive = true;
+  String _sessionMessage = '';
+
   @override
   void initState() {
     super.initState();
+    _loadDoctors();
     _loadQueueData();
+    _loadRushLevel();
+    _loadSessionStatus();
     // Poll every 5 seconds
     _refreshTimer = Timer.periodic(const Duration(seconds: 5), (timer) {
-      if (mounted) _loadQueueData(silent: true);
+      if (mounted) {
+        _loadQueueData(silent: true);
+        _loadRushLevel();
+        _loadSessionStatus();
+      }
     });
+  }
+
+  Future<void> _loadDoctors() async {
+    try {
+      final doctors = await _apiService.fetchDoctors(clinicId: widget.clinicId);
+      if (mounted) {
+        setState(() => _doctors = doctors);
+      }
+    } catch (e) {
+      print("Error loading doctors: $e");
+    }
+  }
+
+  Future<void> _loadRushLevel() async {
+    try {
+      final data = await _apiService.fetchRushLevel(clinicId: widget.clinicId);
+      if (data != null && mounted) {
+        setState(() {
+          _rushLevel = data['rush_level'] ?? 'Low';
+          _totalWaiting = data['waiting_count'] ?? 0;
+          _estimatedWait = data['estimated_wait'] ?? '5-15 minutes';
+        });
+      }
+    } catch (e) {
+      print("Error loading rush level: $e");
+    }
+  }
+
+  Future<void> _loadSessionStatus() async {
+    try {
+      final data = await _apiService.fetchSessionStatus(clinicId: widget.clinicId);
+      if (data != null && mounted) {
+        setState(() {
+          _isSessionActive = data['is_active'] ?? true;
+          _sessionMessage = data['message'] ?? '';
+        });
+      }
+    } catch (e) {
+      print("Error loading session status: $e");
+    }
   }
 
   @override
@@ -42,7 +103,10 @@ class _QueueManagementScreenState extends State<QueueManagementScreen> {
     if (!silent) setState(() => _isLoading = true);
 
     try {
-      final data = await _apiService.fetchQueueStatus(clinicId: widget.clinicId);
+      final data = await _apiService.fetchQueueStatus(
+        clinicId: widget.clinicId,
+        doctorId: _selectedDoctorId,
+      );
       if (data != null && mounted) {
         setState(() {
           // Parse Serving
@@ -69,7 +133,7 @@ class _QueueManagementScreenState extends State<QueueManagementScreen> {
           } else {
             _skippedList = [];
           }
-          
+
           _isLoading = false;
         });
       }
@@ -80,7 +144,10 @@ class _QueueManagementScreenState extends State<QueueManagementScreen> {
   }
 
   Future<void> _callNext() async {
-    final success = await _apiService.callNextPatient(clinicId: widget.clinicId);
+    final success = await _apiService.callNextPatient(
+      clinicId: widget.clinicId,
+      doctorId: _selectedDoctorId,
+    );
     if (success) {
       _loadQueueData();
       ScaffoldMessenger.of(context).showSnackBar(
@@ -88,14 +155,69 @@ class _QueueManagementScreenState extends State<QueueManagementScreen> {
       );
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Failed to call next"), backgroundColor: Colors.red),
+        SnackBar(content: Text(_isSessionActive ? "Failed to call next" : _sessionMessage), backgroundColor: Colors.orange),
+      );
+    }
+  }
+
+  Future<void> _checkIn(String appointmentId) async {
+    if (!_isSessionActive) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(_sessionMessage), backgroundColor: Colors.orange),
+      );
+      return;
+    }
+    final success = await _apiService.checkInPatient(
+      appointmentId: appointmentId,
+      clinicId: widget.clinicId,
+    );
+    if (success) {
+      _loadQueueData();
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Patient checked in"), backgroundColor: Colors.green),
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Failed to check in"), backgroundColor: Colors.red),
+      );
+    }
+  }
+
+  Future<void> _requeue(String appointmentId) async {
+    if (!_isSessionActive) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(_sessionMessage), backgroundColor: Colors.orange),
+      );
+      return;
+    }
+    final success = await _apiService.requeuePatient(
+      appointmentId: appointmentId,
+      clinicId: widget.clinicId,
+    );
+    if (success) {
+      _loadQueueData();
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Patient re-queued"), backgroundColor: Colors.blue),
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Failed to re-queue"), backgroundColor: Colors.red),
       );
     }
   }
 
   Future<void> _updateStatus(String appointmentId, String status) async {
+    if (!_isSessionActive) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(_sessionMessage), backgroundColor: Colors.orange),
+      );
+      return;
+    }
     final success = await _apiService.updateTokenStatus(
-        appointmentId: appointmentId, status: status);
+      appointmentId: appointmentId,
+      clinicId: widget.clinicId,
+      status: status,
+    );
     if (success) {
       _loadQueueData();
       ScaffoldMessenger.of(context).showSnackBar(
@@ -119,16 +241,112 @@ class _QueueManagementScreenState extends State<QueueManagementScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            "Queue Management",
-            style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: Colors.blueGrey),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    "Queue Management",
+                    style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: Colors.blueGrey),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    "Manage patient flow and tokens",
+                    style: TextStyle(fontSize: 14, color: Colors.grey[600]),
+                  ),
+                ],
+              ),
+              // Rush Indicator
+              RushIndicator(
+                rushLevel: _rushLevel,
+                waitingCount: _totalWaiting,
+                estimatedWait: _estimatedWait,
+              ),
+              // Doctor Filter Dropdown
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.grey.withOpacity(0.2)),
+                ),
+                child: DropdownButtonHideUnderline(
+                  child: DropdownButton<String?>(
+                    value: _selectedDoctorId,
+                    hint: const Text("All Doctors"),
+                    icon: const Icon(Icons.filter_list),
+                    items: [
+                      const DropdownMenuItem<String?>(
+                        value: null,
+                        child: Text("All Doctors"),
+                      ),
+                      ..._doctors.map((doctor) => DropdownMenuItem<String?>(
+                        value: doctor.id,
+                        child: Text(doctor.name),
+                      )),
+                    ],
+                    onChanged: (value) {
+                      setState(() => _selectedDoctorId = value);
+                      _loadQueueData();
+                    },
+                  ),
+                ),
+              ),
+            ],
           ),
-          const SizedBox(height: 8),
-          Text(
-            "Manage patient flow and tokens",
-            style: TextStyle(fontSize: 14, color: Colors.grey[600]),
-          ),
-          const SizedBox(height: 32),
+          const SizedBox(height: 16),
+
+          // Session Paused Banner
+          if (!_isSessionActive)
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+              margin: const EdgeInsets.only(bottom: 16),
+              decoration: BoxDecoration(
+                color: Colors.orange[50],
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.orange[300]!),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.pause_circle_filled, color: Colors.orange[700], size: 24),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          "Queue Management Paused",
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 14,
+                            color: Colors.orange[800],
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          _sessionMessage,
+                          style: TextStyle(fontSize: 12, color: Colors.orange[700]),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: Colors.orange[100],
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    child: const Text(
+                      "View Queue Only",
+                      style: TextStyle(fontSize: 11, fontWeight: FontWeight.w500, color: Colors.deepOrange),
+                    ),
+                  ),
+                ],
+              ),
+            ),
 
           Expanded(
             child: Row(
@@ -252,7 +470,7 @@ class _QueueManagementScreenState extends State<QueueManagementScreen> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           ElevatedButton.icon(
-            onPressed: _callNext,
+            onPressed: _isSessionActive ? _callNext : null,
             icon: const Icon(Icons.notifications_active),
             label: const Text("CALL NEXT PATIENT"),
             style: ElevatedButton.styleFrom(
@@ -269,7 +487,7 @@ class _QueueManagementScreenState extends State<QueueManagementScreen> {
               children: [
                 Expanded(
                   child: OutlinedButton.icon(
-                    onPressed: () => _updateStatus(_servingToken!.id, "VISITED"),
+                    onPressed: _isSessionActive ? () => _updateStatus(_servingToken!.id, "VISITED") : null,
                     icon: const Icon(Icons.check_circle_outline),
                     label: const Text("Mark Visited"),
                     style: OutlinedButton.styleFrom(
@@ -282,7 +500,7 @@ class _QueueManagementScreenState extends State<QueueManagementScreen> {
                 const SizedBox(width: 12),
                 Expanded(
                   child: OutlinedButton.icon(
-                    onPressed: () => _updateStatus(_servingToken!.id, "NO_SHOW"),
+                    onPressed: _isSessionActive ? () => _updateStatus(_servingToken!.id, "NO_SHOW") : null,
                     icon: const Icon(Icons.cancel_outlined),
                     label: const Text("No Show"),
                     style: OutlinedButton.styleFrom(
@@ -344,58 +562,137 @@ class _QueueManagementScreenState extends State<QueueManagementScreen> {
                       return Container(
                         padding: const EdgeInsets.all(12),
                         decoration: BoxDecoration(
-                          color: Colors.grey[50],
+                          color: apt.isCheckedIn ? Colors.green[50] : Colors.grey[50],
                           borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: Colors.grey.withOpacity(0.1)),
+                          border: Border.all(
+                            color: apt.isCheckedIn 
+                              ? Colors.green.withOpacity(0.3) 
+                              : Colors.grey.withOpacity(0.1),
+                          ),
                         ),
                         child: Row(
                           children: [
-                            Container(
-                              width: 32,
-                              height: 32,
-                              alignment: Alignment.center,
-                              decoration: BoxDecoration(
-                                color: isWaiting ? Colors.blue[100] : Colors.orange[100],
-                                shape: BoxShape.circle,
-                              ),
-                              child: Text(
-                                "${apt.tokenNumber}",
-                                style: TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  color: isWaiting ? Colors.blue[800] : Colors.orange[800],
+                            // Token number with check-in indicator
+                            Stack(
+                              children: [
+                                Container(
+                                  width: 40,
+                                  height: 40,
+                                  alignment: Alignment.center,
+                                  decoration: BoxDecoration(
+                                    color: isWaiting ? Colors.blue[100] : Colors.orange[100],
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: Text(
+                                    "${apt.tokenNumber}",
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 16,
+                                      color: isWaiting ? Colors.blue[800] : Colors.orange[800],
+                                    ),
+                                  ),
                                 ),
-                              ),
+                                // Check-in status dot
+                                if (isWaiting)
+                                  Positioned(
+                                    right: 0,
+                                    bottom: 0,
+                                    child: Container(
+                                      width: 12,
+                                      height: 12,
+                                      decoration: BoxDecoration(
+                                        color: apt.isCheckedIn ? Colors.green : Colors.grey[400],
+                                        shape: BoxShape.circle,
+                                        border: Border.all(color: Colors.white, width: 2),
+                                      ),
+                                    ),
+                                  ),
+                              ],
                             ),
                             const SizedBox(width: 12),
                             Expanded(
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  Text(
-                                    apt.patientName,
-                                    style: const TextStyle(fontWeight: FontWeight.w600),
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
+                                  Row(
+                                    children: [
+                                      Expanded(
+                                        child: Text(
+                                          apt.patientName,
+                                          style: const TextStyle(fontWeight: FontWeight.w600),
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      ),
+                                      // Position badge for waiting patients
+                                      if (isWaiting && apt.queuePosition > 0)
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                          decoration: BoxDecoration(
+                                            color: Colors.blue[50],
+                                            borderRadius: BorderRadius.circular(10),
+                                          ),
+                                          child: Text(
+                                            "#${apt.queuePosition} in line",
+                                            style: TextStyle(
+                                              fontSize: 11,
+                                              fontWeight: FontWeight.w500,
+                                              color: Colors.blue[700],
+                                            ),
+                                          ),
+                                        ),
+                                    ],
                                   ),
-                                  Text(
-                                    apt.time,
-                                    style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                                  const SizedBox(height: 2),
+                                  Row(
+                                    children: [
+                                      Text(
+                                        apt.time,
+                                        style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                                      ),
+                                      if (apt.isCheckedIn) ...[
+                                        const SizedBox(width: 8),
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+                                          decoration: BoxDecoration(
+                                            color: Colors.green[100],
+                                            borderRadius: BorderRadius.circular(4),
+                                          ),
+                                          child: Text(
+                                            "Arrived",
+                                            style: TextStyle(fontSize: 10, color: Colors.green[800], fontWeight: FontWeight.w500),
+                                          ),
+                                        ),
+                                      ],
+                                    ],
                                   ),
                                 ],
                               ),
                             ),
-                            if (isWaiting)
+                            // Action buttons
+                            if (isWaiting) ...[
+                              // Check-in button (only if not checked in)
+                              if (!apt.isCheckedIn)
+                                IconButton(
+                                  icon: const Icon(Icons.how_to_reg, color: Colors.green),
+                                  tooltip: "Check In",
+                                  onPressed: _isSessionActive ? () => _checkIn(apt.id) : null,
+                                ),
+                              // Skip button
                               IconButton(
                                 icon: const Icon(Icons.skip_next, color: Colors.orange),
                                 tooltip: "Skip (Late)",
-                                onPressed: () => _updateStatus(apt.id, "SKIPPED"),
+                                onPressed: _isSessionActive ? () => _updateStatus(apt.id, "SKIPPED") : null,
                               ),
-                            if (isSkipped)
+                            ],
+                            if (isSkipped) ...[
+                              // Re-queue button
                               IconButton(
-                                icon: const Icon(Icons.undo, color: Colors.blue),
-                                tooltip: "Add back to Queue",
-                                onPressed: () => _updateStatus(apt.id, "BOOKED"),
+                                icon: const Icon(Icons.replay, color: Colors.blue),
+                                tooltip: "Re-add to Queue",
+                                onPressed: _isSessionActive ? () => _requeue(apt.id) : null,
                               ),
+                            ],
                           ],
                         ),
                       );

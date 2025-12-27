@@ -199,8 +199,10 @@ class ApiService {
        return [];
     }
   }
-  Future<Map<String, dynamic>?> fetchQueueStatus({required String clinicId}) async {
-    final uri = Uri.parse('$baseUrl/queue?clinic_id=$clinicId');
+  Future<Map<String, dynamic>?> fetchQueueStatus({required String clinicId, String? doctorId}) async {
+    String query = 'clinic_id=$clinicId';
+    if (doctorId != null) query += '&doctor_id=$doctorId';
+    final uri = Uri.parse('$baseUrl/queue?$query');
     try {
       final response = await http.get(uri);
       if (response.statusCode == 200) {
@@ -214,12 +216,19 @@ class ApiService {
     }
   }
 
-  Future<bool> callNextPatient({required String clinicId}) async {
-    final uri = Uri.parse('$baseUrl/queue/next?clinic_id=$clinicId');
+  Future<bool> callNextPatient({required String clinicId, String? doctorId}) async {
+    String query = 'clinic_id=$clinicId';
+    if (doctorId != null) query += '&doctor_id=$doctorId';
+    final uri = Uri.parse('$baseUrl/queue/next?$query');
     try {
       final response = await http.post(uri);
       if (response.statusCode == 200) {
         return true;
+      } else if (response.statusCode == 403) {
+        // Session not active
+        final body = jsonDecode(response.body);
+        print("Queue action blocked: ${body['detail']}");
+        return false;
       } else {
         print("Failed to call next: ${response.body}");
         return false;
@@ -230,7 +239,11 @@ class ApiService {
     }
   }
 
-  Future<bool> updateTokenStatus({required String appointmentId, required String status}) async {
+  Future<bool> updateTokenStatus({
+    required String appointmentId, 
+    required String status,
+    required String clinicId
+  }) async {
     final uri = Uri.parse('$baseUrl/queue/status');
     try {
       final response = await http.post(
@@ -238,12 +251,18 @@ class ApiService {
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({
           'appointment_id': appointmentId,
-          'status': status
+          'status': status,
+          'clinic_id': clinicId
         }),
       );
       
       if (response.statusCode == 200) {
         return true;
+      } else if (response.statusCode == 403) {
+        // Session not active
+        final body = jsonDecode(response.body);
+        print("Queue action blocked: ${body['detail']}");
+        return false;
       } else {
         print("Failed to update status: ${response.body}");
         return false;
@@ -251,6 +270,212 @@ class ApiService {
     } catch (e) {
       print("API Error Update Status: $e");
       return false;
+    }
+  }
+
+  // New methods for session status and rush info
+
+  Future<Map<String, dynamic>?> checkSessionStatus({required String clinicId}) async {
+    final uri = Uri.parse('$baseUrl/session/status?clinic_id=$clinicId');
+    try {
+      final response = await http.get(uri);
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body);
+      } else {
+        print("Failed to check session status: ${response.statusCode}");
+        return null;
+      }
+    } catch (e) {
+      print("API Error Session Status: $e");
+      return null;
+    }
+  }
+
+  // Alias for GitHub frontend compatibility
+  Future<Map<String, dynamic>?> fetchSessionStatus({required String clinicId}) async {
+    return checkSessionStatus(clinicId: clinicId);
+  }
+
+  Future<Map<String, dynamic>?> getRushInfo({required String clinicId}) async {
+    final uri = Uri.parse('$baseUrl/rush?clinic_id=$clinicId');
+    try {
+      final response = await http.get(uri);
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body);
+      } else {
+        print("Failed to get rush info: ${response.statusCode}");
+        return null;
+      }
+    } catch (e) {
+      print("API Error Rush Info: $e");
+      return null;
+    }
+  }
+
+  // Alias for GitHub frontend compatibility
+  Future<Map<String, dynamic>?> fetchRushLevel({required String clinicId}) async {
+    return getRushInfo(clinicId: clinicId);
+  }
+
+  Future<bool> checkInPatient({
+    required String appointmentId,
+    required String clinicId
+  }) async {
+    final uri = Uri.parse('$baseUrl/queue/checkin');
+    try {
+      final response = await http.post(
+        uri,
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'appointment_id': appointmentId,
+          'clinic_id': clinicId
+        }),
+      );
+      
+      if (response.statusCode == 200) {
+        return true;
+      } else if (response.statusCode == 403) {
+        final body = jsonDecode(response.body);
+        print("Check-in blocked: ${body['detail']}");
+        return false;
+      } else {
+        print("Failed to check in: ${response.body}");
+        return false;
+      }
+    } catch (e) {
+      print("API Error Check-in: $e");
+      return false;
+    }
+  }
+
+  Future<bool> requeuePatient({
+    required String appointmentId,
+    required String clinicId
+  }) async {
+    final uri = Uri.parse('$baseUrl/queue/requeue');
+    try {
+      final response = await http.post(
+        uri,
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'appointment_id': appointmentId,
+          'clinic_id': clinicId
+        }),
+      );
+      
+      if (response.statusCode == 200) {
+        return true;
+      } else if (response.statusCode == 403) {
+        final body = jsonDecode(response.body);
+        print("Requeue blocked: ${body['detail']}");
+        return false;
+      } else {
+        print("Failed to requeue: ${response.body}");
+        return false;
+      }
+    } catch (e) {
+      print("API Error Requeue: $e");
+      return false;
+    }
+  }
+
+  // Admin Settings API methods
+
+  Future<Map<String, dynamic>?> fetchClinicSettings({required String clinicId}) async {
+    final uri = Uri.parse('$baseUrl/clinic/settings?clinic_id=$clinicId');
+    try {
+      final response = await http.get(uri);
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body);
+      } else {
+        print("Failed to fetch clinic settings: ${response.statusCode}");
+        return null;
+      }
+    } catch (e) {
+      print("API Error Clinic Settings: $e");
+      return null;
+    }
+  }
+
+  Future<Map<String, dynamic>?> updateClinicSettings({
+    required String clinicId,
+    int? rushLowThreshold,
+    int? rushMediumThreshold,
+    int? avgConsultationMinutes,
+  }) async {
+    final uri = Uri.parse('$baseUrl/clinic/settings?clinic_id=$clinicId');
+    try {
+      final body = <String, dynamic>{};
+      if (rushLowThreshold != null) body['rush_low_threshold'] = rushLowThreshold;
+      if (rushMediumThreshold != null) body['rush_medium_threshold'] = rushMediumThreshold;
+      if (avgConsultationMinutes != null) body['average_consultation_minutes'] = avgConsultationMinutes;
+
+      final response = await http.patch(
+        uri,
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode(body),
+      );
+      
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body);
+      } else {
+        print("Failed to update clinic settings: ${response.body}");
+        return null;
+      }
+    } catch (e) {
+      print("API Error Update Clinic Settings: $e");
+      return null;
+    }
+  }
+
+  Future<Map<String, dynamic>?> fetchSessionsConfig({required String clinicId}) async {
+    final uri = Uri.parse('$baseUrl/sessions/config?clinic_id=$clinicId');
+    try {
+      final response = await http.get(uri);
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body);
+      } else {
+        print("Failed to fetch sessions config: ${response.statusCode}");
+        return null;
+      }
+    } catch (e) {
+      print("API Error Sessions Config: $e");
+      return null;
+    }
+  }
+
+  Future<Map<String, dynamic>?> updateSession({
+    required String sessionId,
+    String? startTime,
+    String? endTime,
+    int? maxTokens,
+    int? bufferMinutes,
+    bool? isActive,
+  }) async {
+    final uri = Uri.parse('$baseUrl/sessions/$sessionId');
+    try {
+      final body = <String, dynamic>{};
+      if (startTime != null) body['start_time'] = startTime;
+      if (endTime != null) body['end_time'] = endTime;
+      if (maxTokens != null) body['max_tokens'] = maxTokens;
+      if (bufferMinutes != null) body['buffer_minutes'] = bufferMinutes;
+      if (isActive != null) body['is_active'] = isActive;
+
+      final response = await http.patch(
+        uri,
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode(body),
+      );
+      
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body);
+      } else {
+        print("Failed to update session: ${response.body}");
+        return null;
+      }
+    } catch (e) {
+      print("API Error Update Session: $e");
+      return null;
     }
   }
 }

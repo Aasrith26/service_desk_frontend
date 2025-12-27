@@ -12,6 +12,8 @@ class Appointment {
   final String status;
   final String type;
   final int tokenNumber;
+  final bool isCheckedIn;
+  final int queuePosition;
   
   Appointment({
     required this.id,
@@ -25,6 +27,8 @@ class Appointment {
     required this.status,
     required this.type,
     required this.tokenNumber,
+    this.isCheckedIn = false,
+    this.queuePosition = 0,
   });
 
   factory Appointment.fromJson(Map<String, dynamic> json) {
@@ -40,9 +44,12 @@ class Appointment {
       status: json['status'],
       type: json['type'],
       tokenNumber: json['token_number'] ?? 0,
+      isCheckedIn: json['is_checked_in'] ?? false,
+      queuePosition: json['queue_position'] ?? 0,
     );
   }
 }
+
 
 class StatCardData {
   final String label;
