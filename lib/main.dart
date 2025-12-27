@@ -259,108 +259,20 @@ class _MainScreenState extends State<MainScreen> {
             Expanded(
               child: Column(
                 children: [
-                  // Header
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 20),
-                    color: Colors.transparent,
-                    child: Row(
-                      children: [
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text(
-                              "Dashboard",
-                              style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.blueGrey),
-                            ),
-                            InkWell(
-                                onTap: _pickDate,
-                                borderRadius: BorderRadius.circular(4),
-                                child: Padding(
-                                    padding: const EdgeInsets.symmetric(vertical: 4),
-                                    child: Row(
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: [
-                                            Text(
-                                              "$dateString • ${widget.clinicName}", 
-                                              style: TextStyle(color: Colors.grey[500], fontSize: 13),
-                                            ),
-                                            const SizedBox(width: 4),
-                                            const Icon(Icons.logout, size: 16, color: Colors.grey),
-                                        ],
-                                    ),
-                                ),
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              "Hello, ${widget.userName}", // Display user name
-                              style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Color(0xFF00BFA5)),
-                            )
-                          ],
-                        ),
-                        const Spacer(),
-                        
-                        // Search Bar
-                        Container(
-                          width: 300,
-                          height: 48,
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(color: Colors.grey.withOpacity(0.2)),
-                          ),
-                          padding: const EdgeInsets.symmetric(horizontal: 16),
-                          child: Row(
-                            children: [
-                              Icon(Icons.search, color: Colors.grey[400]),
-                              const SizedBox(width: 8),
-                              Expanded(
-                                child: TextField(
-                                  decoration: InputDecoration(
-                                    hintText: "Search patients, doctors...",
-                                    hintStyle: TextStyle(color: Colors.grey[400]),
-                                    border: InputBorder.none,
-                                    isDense: true,
-                                    contentPadding: EdgeInsets.zero,
-                                  ),
-                                  onChanged: (value) {
-                                    setState(() {
-                                      _searchQuery = value;
-                                    });
-                                  },
-                                  style: TextStyle(color: Colors.grey[700]),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(width: 16),
-                        
-                        // Notification
-                        Container(
-                          padding: const EdgeInsets.all(12),
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(color: Colors.grey.withOpacity(0.2)),
-                          ),
-                          child: const Icon(Icons.notifications_outlined, color: Colors.grey),
-                        ),
-                        const SizedBox(width: 16),
-
-                        // Add Button
-                        ElevatedButton.icon(
-                          onPressed: () => showNewAppointmentDialog(context, _handleAddAppointment, _selectedDate, _doctors),
-                          icon: const Icon(Icons.add),
-                          label: const Text("New Appointment"),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFF00BFA5),
-                            foregroundColor: Colors.white,
-                            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 18),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                          ),
-                        ),
-                      ],
-                    ),
+                  // Header - Responsive
+                  LayoutBuilder(
+                    builder: (context, constraints) {
+                      final isMobile = constraints.maxWidth < 600;
+                      final padding = isMobile ? 16.0 : 32.0;
+                      
+                      return Container(
+                        padding: EdgeInsets.symmetric(horizontal: padding, vertical: isMobile ? 12 : 20),
+                        color: Colors.transparent,
+                        child: isMobile 
+                          ? _buildMobileHeader(dateString)
+                          : _buildDesktopHeader(dateString),
+                      );
+                    },
                   ),
 
                   // Scrollable Content
@@ -370,36 +282,69 @@ class _MainScreenState extends State<MainScreen> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                            // Stats Row
-                            Row(
-                            children: [
-                              Expanded(
-                                child: StatsCard(
-                                  icon: Icons.phone_in_talk,
-                                  iconColor: Colors.blue,
-                                  label: "Incoming Calls",
-                                  value: dailyCalls,
-                                  trend: dailyCallsTrend,
-                                  isPositive: true,
-                                ),
-                              ),
-                              const SizedBox(width: 24),
-                              Expanded(
-                                child: StatsCard(
-                                  icon: Icons.calendar_today,
-                                  iconColor: const Color(0xFF00BFA5),
-                                  label: "Appointments",
-                                  value: "$totalAppts",
-                                  subtext: "AI: $aiAppts • Walk-in: $walkinsAppts", // Breakdown
-                                ),
-                              ),
-                              const SizedBox(width: 24),
-                              const Expanded(
-                                flex: 2, 
-                                child: _AiReceptionistCard(),
-                              ),
-                            ],
-                          ),
+                            // Stats Row - Responsive
+                            LayoutBuilder(
+                              builder: (context, constraints) {
+                                final isMobile = constraints.maxWidth < 500;
+                                
+                                if (isMobile) {
+                                  // Mobile: Stack stats vertically
+                                  return Column(
+                                    children: [
+                                      StatsCard(
+                                        icon: Icons.phone_in_talk,
+                                        iconColor: Colors.blue,
+                                        label: "Incoming Calls",
+                                        value: dailyCalls,
+                                        trend: dailyCallsTrend,
+                                        isPositive: true,
+                                      ),
+                                      const SizedBox(height: 12),
+                                      StatsCard(
+                                        icon: Icons.calendar_today,
+                                        iconColor: const Color(0xFF00BFA5),
+                                        label: "Appointments",
+                                        value: "$totalAppts",
+                                        subtext: "AI: $aiAppts • Walk-in: $walkinsAppts",
+                                      ),
+                                      const SizedBox(height: 12),
+                                      const _AiReceptionistCard(),
+                                    ],
+                                  );
+                                }
+                                
+                                // Desktop: Original Row layout
+                                return Row(
+                                  children: [
+                                    Expanded(
+                                      child: StatsCard(
+                                        icon: Icons.phone_in_talk,
+                                        iconColor: Colors.blue,
+                                        label: "Incoming Calls",
+                                        value: dailyCalls,
+                                        trend: dailyCallsTrend,
+                                        isPositive: true,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 24),
+                                    Expanded(
+                                      child: StatsCard(
+                                        icon: Icons.calendar_today,
+                                        iconColor: const Color(0xFF00BFA5),
+                                        label: "Appointments",
+                                        value: "$totalAppts",
+                                        subtext: "AI: $aiAppts • Walk-in: $walkinsAppts",
+                                      ),
+                                    ),
+                                    const SizedBox(width: 24),
+                                    const Expanded(
+                                      flex: 2, 
+                                      child: _AiReceptionistCard(),
+                                    ),
+                                  ],
+                                );
+                              },
+                            ),
                           const SizedBox(height: 32),
 
                           // Calendar
@@ -494,6 +439,155 @@ class _MainScreenState extends State<MainScreen> {
               ),
             ),
           ),
+      ],
+    );
+  }
+
+  // Mobile Header - compact with essential actions
+  Widget _buildMobileHeader(String dateString) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  "Dashboard",
+                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.blueGrey),
+                ),
+                InkWell(
+                  onTap: _pickDate,
+                  child: Text(
+                    dateString,
+                    style: TextStyle(color: Colors.grey[500], fontSize: 12),
+                  ),
+                ),
+              ],
+            ),
+            // Compact actions
+            Row(
+              children: [
+                IconButton(
+                  icon: const Icon(Icons.notifications_outlined, size: 22),
+                  onPressed: () {},
+                  color: Colors.grey,
+                ),
+                IconButton(
+                  icon: const Icon(Icons.add_circle, size: 28, color: Color(0xFF00BFA5)),
+                  onPressed: () => showNewAppointmentDialog(context, _handleAddAppointment, _selectedDate, _doctors),
+                ),
+              ],
+            ),
+          ],
+        ),
+        const SizedBox(height: 4),
+        Text(
+          "Hello, ${widget.userName}",
+          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF00BFA5)),
+        ),
+      ],
+    );
+  }
+
+  // Desktop Header - full layout
+  Widget _buildDesktopHeader(String dateString) {
+    return Row(
+      children: [
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              "Dashboard",
+              style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.blueGrey),
+            ),
+            InkWell(
+              onTap: _pickDate,
+              borderRadius: BorderRadius.circular(4),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 4),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      "$dateString • ${widget.clinicName}",
+                      style: TextStyle(color: Colors.grey[500], fontSize: 13),
+                    ),
+                    const SizedBox(width: 4),
+                    const Icon(Icons.logout, size: 16, color: Colors.grey),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              "Hello, ${widget.userName}",
+              style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Color(0xFF00BFA5)),
+            ),
+          ],
+        ),
+        const Spacer(),
+        
+        // Search Bar
+        Container(
+          width: 300,
+          height: 48,
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: Colors.grey.withOpacity(0.2)),
+          ),
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: Row(
+            children: [
+              Icon(Icons.search, color: Colors.grey[400]),
+              const SizedBox(width: 8),
+              Expanded(
+                child: TextField(
+                  decoration: InputDecoration(
+                    hintText: "Search patients, doctors...",
+                    hintStyle: TextStyle(color: Colors.grey[400]),
+                    border: InputBorder.none,
+                    isDense: true,
+                    contentPadding: EdgeInsets.zero,
+                  ),
+                  onChanged: (value) {
+                    setState(() => _searchQuery = value);
+                  },
+                  style: TextStyle(color: Colors.grey[700]),
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(width: 16),
+        
+        // Notification
+        Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: Colors.grey.withOpacity(0.2)),
+          ),
+          child: const Icon(Icons.notifications_outlined, color: Colors.grey),
+        ),
+        const SizedBox(width: 16),
+
+        // Add Button
+        ElevatedButton.icon(
+          onPressed: () => showNewAppointmentDialog(context, _handleAddAppointment, _selectedDate, _doctors),
+          icon: const Icon(Icons.add),
+          label: const Text("New Appointment"),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: const Color(0xFF00BFA5),
+            foregroundColor: Colors.white,
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 18),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          ),
+        ),
       ],
     );
   }

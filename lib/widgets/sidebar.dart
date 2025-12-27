@@ -5,6 +5,7 @@ class Sidebar extends StatelessWidget {
   final ValueChanged<bool> onCollapsedChanged;
   final int selectedIndex;
   final ValueChanged<int> onItemSelected;
+  final bool isMobileDrawer;
 
   const Sidebar({
     super.key,
@@ -12,14 +13,18 @@ class Sidebar extends StatelessWidget {
     required this.onCollapsedChanged,
     required this.selectedIndex,
     required this.onItemSelected,
+    this.isMobileDrawer = false,
   });
 
   @override
   Widget build(BuildContext context) {
+    // In mobile drawer mode, use full width and don't animate
+    final sidebarWidth = isMobileDrawer ? 280.0 : (collapsed ? 80.0 : 256.0);
+    
     return AnimatedContainer(
-      duration: const Duration(milliseconds: 300),
+      duration: isMobileDrawer ? Duration.zero : const Duration(milliseconds: 300),
       curve: Curves.easeInOut,
-      width: collapsed ? 80 : 256,
+      width: sidebarWidth,
       decoration: BoxDecoration(
         color: Colors.white,
         border: Border(

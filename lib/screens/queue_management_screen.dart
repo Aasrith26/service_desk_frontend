@@ -260,147 +260,251 @@ class _QueueManagementScreenState extends State<QueueManagementScreen> {
       return const Center(child: CircularProgressIndicator());
     }
 
-    return Padding(
-      padding: const EdgeInsets.all(32.0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isMobile = constraints.maxWidth < 600;
+        final padding = isMobile ? 16.0 : 32.0;
+        
+        return SingleChildScrollView(
+          padding: EdgeInsets.all(padding),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    "Queue Management",
-                    style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: Colors.blueGrey),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    "Manage patient flow and tokens",
-                    style: TextStyle(fontSize: 14, color: Colors.grey[600]),
-                  ),
-                ],
-              ),
-              // Rush Indicator
-              RushIndicator(
-                rushLevel: _rushLevel,
-                waitingCount: _totalWaiting,
-                estimatedWait: _estimatedWait,
-              ),
-              // Doctor Filter Dropdown
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: Colors.grey.withOpacity(0.2)),
-                ),
-                child: DropdownButtonHideUnderline(
-                  child: DropdownButton<String?>(
-                    value: _selectedDoctorId,
-                    hint: const Text("All Doctors"),
-                    icon: const Icon(Icons.filter_list),
-                    items: [
-                      const DropdownMenuItem<String?>(
-                        value: null,
-                        child: Text("All Doctors"),
-                      ),
-                      ..._doctors.map((doctor) => DropdownMenuItem<String?>(
-                        value: doctor.id,
-                        child: Text(doctor.name),
-                      )),
-                    ],
-                    onChanged: (value) {
-                      setState(() => _selectedDoctorId = value);
-                      _loadQueueData();
-                    },
-                  ),
-                ),
-              ),
+              // Header - responsive
+              _buildHeader(isMobile),
+              
+              const SizedBox(height: 16),
+              
+              // Session Paused Banner
+              if (!_isSessionActive)
+                _buildSessionPausedBanner(),
+
+              const SizedBox(height: 16),
+
+              // Main content - responsive layout
+              if (isMobile) 
+                _buildMobileLayout()
+              else
+                _buildDesktopLayout(),
             ],
           ),
-          const SizedBox(height: 16),
-          
-          // Session Paused Banner
-          if (!_isSessionActive)
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
-              margin: const EdgeInsets.only(bottom: 16),
-              decoration: BoxDecoration(
-                color: Colors.orange[50],
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: Colors.orange[300]!),
-              ),
-              child: Row(
-                children: [
-                  Icon(Icons.pause_circle_filled, color: Colors.orange[700], size: 24),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          "Queue Management Paused",
-                          style: TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 14,
-                            color: Colors.orange[800],
-                          ),
-                        ),
-                        const SizedBox(height: 2),
-                        Text(
-                          _sessionMessage,
-                          style: TextStyle(fontSize: 12, color: Colors.orange[700]),
-                        ),
-                      ],
-                    ),
-                  ),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                    decoration: BoxDecoration(
-                      color: Colors.orange[100],
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                    child: const Text(
-                      "View Queue Only",
-                      style: TextStyle(fontSize: 11, fontWeight: FontWeight.w500, color: Colors.deepOrange),
-                    ),
-                  ),
-                ],
-              ),
-            ),
+        );
+      },
+    );
+  }
 
+  Widget _buildHeader(bool isMobile) {
+    if (isMobile) {
+      // Mobile: Stack elements vertically
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            "Queue Management",
+            style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Colors.blueGrey),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            "Manage patient flow and tokens",
+            style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+          ),
+          const SizedBox(height: 12),
+          // Rush Indicator and Filter in a row
+          Row(
+            children: [
+              Expanded(
+                child: RushIndicator(
+                  rushLevel: _rushLevel,
+                  waitingCount: _totalWaiting,
+                  estimatedWait: _estimatedWait,
+                ),
+              ),
+              const SizedBox(width: 8),
+              _buildDoctorFilterCompact(),
+            ],
+          ),
+        ],
+      );
+    }
+    
+    // Desktop: Original horizontal layout
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              "Queue Management",
+              style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: Colors.blueGrey),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              "Manage patient flow and tokens",
+              style: TextStyle(fontSize: 14, color: Colors.grey[600]),
+            ),
+          ],
+        ),
+        RushIndicator(
+          rushLevel: _rushLevel,
+          waitingCount: _totalWaiting,
+          estimatedWait: _estimatedWait,
+        ),
+        _buildDoctorFilter(),
+      ],
+    );
+  }
+
+  Widget _buildDoctorFilterCompact() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: Colors.grey.withOpacity(0.2)),
+      ),
+      child: DropdownButtonHideUnderline(
+        child: DropdownButton<String?>(
+          value: _selectedDoctorId,
+          hint: const Text("Filter", style: TextStyle(fontSize: 12)),
+          icon: const Icon(Icons.filter_list, size: 18),
+          isDense: true,
+          items: [
+            const DropdownMenuItem<String?>(value: null, child: Text("All", style: TextStyle(fontSize: 12))),
+            ..._doctors.map((doctor) => DropdownMenuItem<String?>(
+              value: doctor.id,
+              child: Text(doctor.name, style: const TextStyle(fontSize: 12)),
+            )),
+          ],
+          onChanged: (value) {
+            setState(() => _selectedDoctorId = value);
+            _loadQueueData();
+          },
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDoctorFilter() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.grey.withOpacity(0.2)),
+      ),
+      child: DropdownButtonHideUnderline(
+        child: DropdownButton<String?>(
+          value: _selectedDoctorId,
+          hint: const Text("All Doctors"),
+          icon: const Icon(Icons.filter_list),
+          items: [
+            const DropdownMenuItem<String?>(value: null, child: Text("All Doctors")),
+            ..._doctors.map((doctor) => DropdownMenuItem<String?>(
+              value: doctor.id,
+              child: Text(doctor.name),
+            )),
+          ],
+          onChanged: (value) {
+            setState(() => _selectedDoctorId = value);
+            _loadQueueData();
+          },
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSessionPausedBanner() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+      decoration: BoxDecoration(
+        color: Colors.orange[50],
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.orange[300]!),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.pause_circle_filled, color: Colors.orange[700], size: 24),
+          const SizedBox(width: 12),
           Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  "Queue Management Paused",
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Colors.orange[800]),
+                ),
+                const SizedBox(height: 2),
+                Text(_sessionMessage, style: TextStyle(fontSize: 12, color: Colors.orange[700])),
+              ],
+            ),
+          ),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            decoration: BoxDecoration(
+              color: Colors.orange[100],
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: const Text(
+              "View Only",
+              style: TextStyle(fontSize: 11, fontWeight: FontWeight.w500, color: Colors.deepOrange),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMobileLayout() {
+    return Column(
+      children: [
+        // Now Serving Card
+        _buildNowServingCard(),
+        const SizedBox(height: 16),
+        
+        // Action Buttons
+        _buildActionButtons(),
+        const SizedBox(height: 24),
+        
+        // Waiting List
+        _buildListSection("Waiting List", _waitingList, isWaiting: true),
+        const SizedBox(height: 16),
+        
+        // Skipped List
+        _buildListSection("Skipped / Late", _skippedList, isSkipped: true),
+      ],
+    );
+  }
+
+  Widget _buildDesktopLayout() {
+    return SizedBox(
+      height: MediaQuery.of(context).size.height - 200,
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Left Column: Now Serving & Controls
+          Expanded(
+            flex: 2,
+            child: Column(
+              children: [
+                _buildNowServingCard(),
+                const SizedBox(height: 24),
+                _buildActionButtons(),
+              ],
+            ),
+          ),
+          const SizedBox(width: 32),
+
+          // Right Column: Lists
+          Expanded(
+            flex: 3,
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Left Column: Now Serving & Controls
-                Expanded(
-                  flex: 2,
-                  child: Column(
-                    children: [
-                      _buildNowServingCard(),
-                      const SizedBox(height: 24),
-                      _buildActionButtons(),
-                    ],
-                  ),
-                ),
-                const SizedBox(width: 32),
-
-                // Right Column: Lists
-                Expanded(
-                  flex: 3,
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Expanded(child: _buildListSection("Waiting List", _waitingList, isWaiting: true)),
-                      const SizedBox(width: 24),
-                      Expanded(child: _buildListSection("Skipped / Late", _skippedList, isSkipped: true)),
-                    ],
-                  ),
-                ),
+                Expanded(child: _buildListSection("Waiting List", _waitingList, isWaiting: true)),
+                const SizedBox(width: 24),
+                Expanded(child: _buildListSection("Skipped / Late", _skippedList, isSkipped: true)),
               ],
             ),
           ),
@@ -408,6 +512,7 @@ class _QueueManagementScreenState extends State<QueueManagementScreen> {
       ),
     );
   }
+
 
   Widget _buildNowServingCard() {
     return Container(
